@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nulmesis</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="window-shell">
+      <header class="titlebar" data-tauri-drag-region>
+        <div class="titlebar-brand" data-tauri-drag-region>
+          <div class="titlebar-logo">N</div>
+          <div class="titlebar-copy">
+            <strong>Nulmesis</strong>
+            <span id="titlebar-label">nul-only cleanup</span>
+          </div>
+        </div>
+
+        <div class="titlebar-actions">
+          <button id="lang-toggle" class="titlebar-button" type="button">
+            <span>🌐</span>
+            <span id="lang-toggle-label">中文</span>
+          </button>
+          <button id="theme-toggle" class="titlebar-button" type="button">
+            <span id="theme-icon">☀️</span>
+            <span id="theme-label">Light</span>
+          </button>
+          <button id="info-toggle" class="titlebar-button" type="button">
+            <span>ℹ️</span>
+            <span id="info-toggle-label">Info</span>
+          </button>
+          <div class="window-controls">
+            <button id="minimize-btn" class="window-button" type="button" aria-label="Minimize">🗕</button>
+            <button id="maximize-btn" class="window-button" type="button" aria-label="Maximize">🗖</button>
+            <button id="close-btn" class="window-button window-button-close" type="button" aria-label="Close">✕</button>
+          </div>
+        </div>
+      </header>
+
+      <section id="info-drawer" class="info-drawer hidden">
+        <div class="info-profile">
+          <div class="info-logo" aria-label="Nulmesis logo">N</div>
+          <div class="info-copy">
+            <p class="eyebrow" id="info-eyebrow">Windows reserved-name cleanup</p>
+            <h2 id="info-title">About this build</h2>
+            <p id="info-subtitle" class="muted">Rust + Tauri dirty shell with a shared scan/delete core.</p>
+          </div>
+        </div>
+        <div class="info-grid">
+          <article class="info-card">
+            <span class="info-card-label" id="info-build-label">Build</span>
+            <strong id="info-build-value">dirty-local</strong>
+          </article>
+          <article class="info-card">
+            <span class="info-card-label" id="info-version-label">Version</span>
+            <strong id="info-version-value">0.1.0</strong>
+          </article>
+          <article class="info-card">
+            <span class="info-card-label" id="info-engine-label">Engine</span>
+            <strong id="info-engine-value">Rust + Tauri 2</strong>
+          </article>
+          <article class="info-card">
+            <span class="info-card-label" id="info-platform-label">Platform</span>
+            <strong id="info-platform-value">windows / x64</strong>
+          </article>
+        </div>
+        <div class="info-list">
+          <div class="info-list-row">
+            <span class="info-list-label" id="info-project-label">Project</span>
+            <span id="info-project-value">Cloud repository pending</span>
+          </div>
+          <div class="info-list-row info-list-row-stack">
+            <span class="info-list-label" id="info-authors-label">Credits</span>
+            <ul id="info-authors-value" class="info-authors"></ul>
+          </div>
+        </div>
+      </section>
+
+      <main id="app" class="page-shell">
+        <section class="hero">
+          <div>
+            <p class="eyebrow" id="hero-eyebrow">Windows reserved-name cleanup</p>
+            <h1 class="hero-title hero-title-en" aria-label="Nulmesis a revenge to nul">
+              <span class="hero-wordmark">Nulmes</span><span class="hero-wordmark-accent">is</span>
+              <span class="hero-title-tail">a revenge to nul</span>
+            </h1>
+            <p class="hero-title hero-title-zh" aria-label="Nulmesis 是一场对 nul 的复仇">
+              <span class="hero-wordmark">Nulmesis</span>
+              <span class="hero-title-tail">是一场对 nul 的复仇</span>
+            </p>
+            <p class="subtitle" id="hero-subtitle">Rust + Tauri dirty shell with a shared scan/delete core.</p>
+          </div>
+        </section>
+
+        <section class="panel panel-toolbar">
+          <div class="toolbar-grid">
+            <label class="field field-root">
+              <span class="field-label" id="root-label">Root</span>
+              <div class="field-with-action">
+                <input id="root" placeholder="Current directory will be used on launch" />
+                <button id="browse" class="button button-subtle" type="button">📂 Browse</button>
+              </div>
+            </label>
+
+            <label class="field field-mode">
+              <span class="field-label" id="mode-label">Mode</span>
+              <select id="mode">
+                <option value="strict">strict</option>
+                <option value="loose">loose</option>
+              </select>
+            </label>
+
+            <div class="toolbar-actions">
+              <button id="scan" class="button button-primary" type="button">🔍 Scan</button>
+              <button id="delete" class="button button-danger" type="button" disabled>🗑️ Delete selected</button>
+            </div>
+          </div>
+          <p class="hint" id="mode-hint">Strict finds only 0KB `nul`. Switch to loose if the blocked `nul` has non-zero size.</p>
+        </section>
+
+        <section class="panel status-panel">
+          <div class="panel-header">
+            <h2 id="scan-status-label">Scan status</h2>
+            <span id="status-badge" class="badge">idle</span>
+          </div>
+          <p id="status-text" class="status-text">Ready to scan.</p>
+          <div id="status-cards" class="status-cards"></div>
+          <details class="raw-status">
+            <summary id="raw-json-label">Show raw JSON</summary>
+            <pre id="status-raw">{}</pre>
+          </details>
+        </section>
+
+        <section class="panel results-panel">
+          <div class="panel-header panel-header-wrap">
+            <h2 id="matches-label">Matches</h2>
+            <div class="panel-tools">
+              <span id="results-summary" class="muted">No scan yet</span>
+            </div>
+          </div>
+          <ul id="results" class="result-list"></ul>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
