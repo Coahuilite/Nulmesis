@@ -42,6 +42,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private string _statusMessage = "就绪";
 
     public ObservableCollection<NulMatch> Matches { get; } = new();
+    public ObservableCollection<NulMatch> SelectedMatches { get; } = new();
     public ObservableCollection<DeleteError> DeleteErrors { get; } = new();
 
     public IReadOnlyList<ScanMode> AvailableModes { get; } = new[] { ScanMode.Strict, ScanMode.Loose };
@@ -64,15 +65,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
         State = ViewModelState.Scanning;
         StatusMessage = "正在扫描...";
         Matches.Clear();
+        SelectedMatches.Clear();
         DeleteErrors.Clear();
         MatchCount = 0;
         ErrorCount = 0;
+        DeleteCommand.NotifyCanExecuteChanged();
 
         try
         {
             var result = await _scanner.ScanAsync(RootDirectory, SelectedMode, ct);
 
-            foreach (var match in result.DeleteTargets)
+            foreach (var match in result.Matches)
             {
                 Matches.Add(match);
             }
@@ -82,29 +85,28 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             if (MatchCount == 0)
             {
-                StatusMessage = "未发现可删除的 nul 文件";
-                State = ViewModelState.Idle;
-            }
-            else if (Matches.Count == 0)
-            {
-                StatusMessage = $"发现 {MatchCount} 个 nul 候选，但都可通过普通路径处理，未加入删除列表";
+                StatusMessage = "未发现 nul 文件";
                 State = ViewModelState.Idle;
             }
             else
             {
                 State = ViewModelState.ReviewReady;
-                StatusMessage = $"扫描完成，找到 {MatchCount} 个匹配项，其中 {Matches.Count} 个需要通过扩展路径删除";
+                StatusMessage = $"扫描完成，找到 {MatchCount} 个匹配项。请选择要删除的项。";
             }
+
+            DeleteCommand.NotifyCanExecuteChanged();
         }
         catch (OperationCanceledException)
         {
             State = ViewModelState.Idle;
             StatusMessage = "扫描已取消";
+            DeleteCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
         {
             State = ViewModelState.Idle;
             StatusMessage = $"扫描失败: {ex.Message}";
+            DeleteCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -117,9 +119,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (Matches.Count == 0)
+        if (SelectedMatches.Count == 0)
         {
-            StatusMessage = "没有可删除的项";
+            StatusMessage = "请先选择要删除的项";
             return;
         }
 
@@ -129,8 +131,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             Root = RootDirectory,
             Mode = SelectedMode,
-            MatchedCount = Matches.Count,
-            PreviewPaths = Matches.Take(10).Select(m => m.RelativePath).ToList()
+            MatchedCount = SelectedMatches.Count,
+            PreviewPaths = SelectedMatches.Take(10).Select(m => m.RelativePath).ToList()
         };
 
         var confirmed = _dialogService?.ShowDeleteConfirmation(confirmationData) ?? true;
@@ -158,7 +160,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 throw new InvalidOperationException("删除器未配置");
             }
 
-            var result = await _deleter.DeleteAsync(Matches.ToList(), ct);
+            var selectedTargets = SelectedMatches.ToList();
+            var result = await _deleter.DeleteAsync(selectedTargets, ct);
 
             foreach (var error in result.Errors)
             {
@@ -185,7 +188,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private bool CanDelete()
     {
-        return State == ViewModelState.ReviewReady && Matches.Count > 0;
+        return State == ViewModelState.ReviewReady && SelectedMatches.Count > 0;
+    }
+
+    public void SetSelectedMatches(IEnumerable<NulMatch> selectedMatches)
+    {
+        SelectedMatches.Clear();
+
+        foreach (var match in selectedMatches)
+        {
+            SelectedMatches.Add(match);
+        }
+
+        DeleteCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>

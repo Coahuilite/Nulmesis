@@ -1,6 +1,7 @@
 using Nulmesis.App.ViewModels;
 using Nulmesis.Core.Domain.Models;
 using Nulmesis.Core.Services;
+using Nulmesis.Tests.Shared;
 
 namespace Nulmesis.App.Tests;
 
@@ -72,7 +73,48 @@ public class MainWindowViewModelTests
         await viewModel.ScanCommand.ExecuteAsync(CancellationToken.None);
 
         var canExecute = viewModel.DeleteCommand.CanExecute(null);
-        Assert.Equal(viewModel.MatchCount > 0, canExecute);
+        Assert.False(canExecute);
+    }
+
+    [Fact]
+    public async Task DeleteCommand_WithMatchesButNoSelection_IsDisabled()
+    {
+        using var root = TempTestRootFactory.Create<MainWindowViewModelTests>();
+        var fixture = ReservedNameFixtureBuilder.Create(root);
+        fixture.CreateReadOnlyNulFile(@"scan-target\nul");
+
+        var scanner = new NulFileScanner();
+        var deleter = new NulFileDeleter();
+        var viewModel = new MainWindowViewModel(scanner, deleter)
+        {
+            RootDirectory = root.RootPath
+        };
+
+        await viewModel.ScanCommand.ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(1, viewModel.MatchCount);
+        Assert.Single(viewModel.Matches);
+        Assert.False(viewModel.DeleteCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task DeleteCommand_WithSelection_IsEnabled()
+    {
+        using var root = TempTestRootFactory.Create<MainWindowViewModelTests>();
+        var fixture = ReservedNameFixtureBuilder.Create(root);
+        fixture.CreateReadOnlyNulFile(@"scan-target\nul");
+
+        var scanner = new NulFileScanner();
+        var deleter = new NulFileDeleter();
+        var viewModel = new MainWindowViewModel(scanner, deleter)
+        {
+            RootDirectory = root.RootPath
+        };
+
+        await viewModel.ScanCommand.ExecuteAsync(CancellationToken.None);
+        viewModel.SetSelectedMatches([viewModel.Matches[0]]);
+
+        Assert.True(viewModel.DeleteCommand.CanExecute(null));
     }
 
     [Fact]

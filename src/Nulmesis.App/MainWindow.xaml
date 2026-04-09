@@ -82,13 +82,15 @@
         </Grid>
 
         <!-- 预览表格 -->
-        <DataGrid Grid.Row="3" 
+        <DataGrid x:Name="MatchesGrid"
+                  Grid.Row="3" 
                   ItemsSource="{Binding Matches}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
                   SelectionMode="Extended"
+                  SelectionChanged="OnMatchesSelectionChanged"
                   GridLinesVisibility="Horizontal"
                   AlternatingRowBackground="{x:Static SystemColors.ControlLightBrush}">
             <DataGrid.Columns>
