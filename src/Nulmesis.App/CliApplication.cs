@@ -10,6 +10,16 @@ namespace Nulmesis.App;
 
 public sealed class CliApplication
 {
+    private static readonly HashSet<string> HelpAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "help",
+        "--help",
+        "-h",
+        "/h",
+        "-?",
+        "/?"
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
@@ -70,7 +80,15 @@ public sealed class CliApplication
 
     public async Task<int> InvokeAsync(string[] args, CancellationToken cancellationToken)
     {
-        var parseResult = _rootCommand.Parse(args);
+        var normalizedArgs = NormalizeHelpArguments(args);
+
+        if (IsHelpRequest(normalizedArgs))
+        {
+            await WriteHelpAsync(normalizedArgs, cancellationToken);
+            return CliExitCode.Success;
+        }
+
+        var parseResult = _rootCommand.Parse(normalizedArgs);
         if (parseResult.Errors.Count > 0)
         {
             return await HandleParseErrorsAsync(parseResult, cancellationToken);
@@ -87,6 +105,85 @@ public sealed class CliApplication
 
     public static bool IsJsonRequested(string[] args)
         => args.Any(static arg => string.Equals(arg, "--json", StringComparison.Ordinal));
+
+    private static string[] NormalizeHelpArguments(string[] args)
+    {
+        if (args.Length == 0 || !string.Equals(args[0], "help", StringComparison.OrdinalIgnoreCase))
+        {
+            return args;
+        }
+
+        return args.Length == 1
+            ? ["--help"]
+            : [args[1], "--help", .. args.Skip(2)];
+    }
+
+    private static bool IsHelpRequest(IReadOnlyList<string> args)
+        => args.Any(HelpAliases.Contains);
+
+    private async Task WriteHelpAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
+    {
+        var commandName = ResolveHelpCommandName(args);
+
+        if (commandName is null)
+        {
+            await _output.WriteLineAsync("Usage:");
+            await _output.WriteLineAsync("  nulmesis <command> [options]");
+            await _output.WriteLineAsync();
+            await _output.WriteLineAsync("Commands:");
+            await _output.WriteLineAsync("  scan    Scan for reserved-name nul files.");
+            await _output.WriteLineAsync("  list    List reserved-name nul files.");
+            await _output.WriteLineAsync("  delete  Delete reserved-name nul files after confirmation.");
+            await _output.WriteLineAsync();
+            await _output.WriteLineAsync("Global options:");
+            await _output.WriteLineAsync("  --root <PATH>        Root directory to inspect.");
+            await _output.WriteLineAsync("  --mode <strict|loose> Matching mode.");
+            await _output.WriteLineAsync("  --json               Emit JSON output to stdout.");
+            await _output.WriteLineAsync("  -h, --help           Show help information.");
+            await _output.WriteLineAsync();
+            await _output.WriteLineAsync("Examples:");
+            await _output.WriteLineAsync("  nulmesis scan --root C:\\path\\to\\target");
+            await _output.WriteLineAsync("  nulmesis list --root C:\\path\\to\\target --json");
+            await _output.WriteLineAsync("  nulmesis help scan");
+            return;
+        }
+
+        await _output.WriteLineAsync($"Usage:");
+        await _output.WriteLineAsync($"  nulmesis {commandName} [options]");
+        await _output.WriteLineAsync();
+
+        switch (commandName.ToLowerInvariant())
+        {
+            case "scan":
+                await _output.WriteLineAsync("Scan for reserved-name nul files.");
+                break;
+            case "list":
+                await _output.WriteLineAsync("List reserved-name nul files.");
+                break;
+            case "delete":
+                await _output.WriteLineAsync("Delete reserved-name nul files after confirmation.");
+                break;
+            default:
+                await _error.WriteLineAsync($"Unknown command '{commandName}'. Available commands: scan, list, delete.");
+                return;
+        }
+
+        await _output.WriteLineAsync();
+        await _output.WriteLineAsync("Options:");
+        await _output.WriteLineAsync("  --root <PATH>        Root directory to inspect.");
+        await _output.WriteLineAsync("  --mode <strict|loose> Matching mode.");
+        await _output.WriteLineAsync("  --json               Emit JSON output to stdout.");
+        await _output.WriteLineAsync("  -h, --help           Show help information.");
+        await _output.WriteLineAsync();
+        await _output.WriteLineAsync("Examples:");
+        await _output.WriteLineAsync($"  nulmesis {commandName} --root C:\\path\\to\\target");
+        await _output.FlushAsync(cancellationToken);
+    }
+
+    private static string? ResolveHelpCommandName(IReadOnlyList<string> args)
+    {
+        return args.FirstOrDefault(arg => !HelpAliases.Contains(arg));
+    }
 
     public static Task WriteUnhandledExceptionJsonAsync(
         TextWriter output,

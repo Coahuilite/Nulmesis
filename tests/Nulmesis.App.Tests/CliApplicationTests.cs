@@ -119,6 +119,39 @@ public sealed class CliApplicationTests
         Assert.Contains("invalid", stderr.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    [Trait("Category", "Cli")]
+    public async Task Cli_help_flag_outputs_help_text()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var app = CliApplication.CreateDefault(new StringReader(string.Empty), stdout, stderr);
+
+        var exitCode = await app.InvokeAsync(["--help"], CancellationToken.None);
+
+        Assert.Equal(CliExitCode.Success, exitCode);
+        Assert.Contains("scan", stdout.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("list", stdout.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("delete", stdout.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(string.Empty, stderr.ToString());
+    }
+
+    [Fact]
+    [Trait("Category", "Cli")]
+    public async Task Cli_help_command_alias_outputs_subcommand_help()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var app = CliApplication.CreateDefault(new StringReader(string.Empty), stdout, stderr);
+
+        var exitCode = await app.InvokeAsync(["help", "scan"], CancellationToken.None);
+
+        Assert.Equal(CliExitCode.Success, exitCode);
+        Assert.Contains("Scan for reserved-name nul files.", stdout.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("--root", stdout.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(string.Empty, stderr.ToString());
+    }
+
     private sealed class DeleteTargetFilteringScanner(IReadOnlySet<string> blockedRelativePaths) : Nulmesis.Core.Services.NulFileScanner
     {
         private readonly IReadOnlySet<string> _blockedRelativePaths = blockedRelativePaths;
