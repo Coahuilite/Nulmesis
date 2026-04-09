@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v0.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, publish and release
+    if: startsWith(github.ref_name, 'v0.')
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v0\.\d+\.\d+$') {
+            throw "Release tags must match v0.x.y. Received: $env:GITHUB_REF_NAME"
+          }
+
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_FILE_VERSION=$version.0"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        shell: pwsh
+        run: |
+          Get-ChildItem .\src, .\tests -Recurse -Filter *.csproj |
+            ForEach-Object { dotnet restore $_.FullName }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          Get-ChildItem .\src, .\tests -Recurse -Filter *.csproj |
+            ForEach-Object { dotnet build $_.FullName --configuration Release --no-restore -p:Version=$env:RELEASE_VERSION -p:PackageVersion=$env:RELEASE_VERSION -p:AssemblyVersion=$env:RELEASE_FILE_VERSION -p:FileVersion=$env:RELEASE_FILE_VERSION -p:InformationalVersion=$env:RELEASE_VERSION }
+
+      - name: Test
+        shell: pwsh
+        run: |
+          Get-ChildItem .\tests -Recurse -Filter *.csproj |
+            ForEach-Object { dotnet test $_.FullName --configuration Release --no-build }
+
+      - name: Publish release assets
+        shell: pwsh
+        run: |
+          $artifactsDir = Join-Path $PWD 'artifacts'
+          New-Item -ItemType Directory -Path $artifactsDir -Force | Out-Null
+
+          foreach ($arch in 'x64', 'x86') {
+            $rid = "win-$arch"
+            $publishDir = Join-Path $artifactsDir "publish-$rid"
+            New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
+
+            dotnet publish .\src\Nulmesis.App\Nulmesis.App.csproj --configuration Release --no-build --runtime $rid --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Version=$env:RELEASE_VERSION -p:PackageVersion=$env:RELEASE_VERSION -p:AssemblyVersion=$env:RELEASE_FILE_VERSION -p:FileVersion=$env:RELEASE_FILE_VERSION -p:InformationalVersion=$env:RELEASE_VERSION -o $publishDir
+
+            $publishedFiles = Get-ChildItem $publishDir -File
+            if ($publishedFiles.Count -ne 1) {
+              throw "Expected a single distributable file in $publishDir but found $($publishedFiles.Count): $($publishedFiles.Name -join ', ')"
+            }
+
+            $sourceExe = Join-Path $publishDir 'Nulmesis.exe'
+            if (-not (Test-Path $sourceExe)) {
+              throw "Expected published executable '$sourceExe' was not created."
+            }
+
+            $smokeOutput = & $sourceExe scan --root $env:RUNNER_TEMP --json
+            if ($LASTEXITCODE -ne 0) {
+              throw "Published CLI smoke for $rid failed with exit code $LASTEXITCODE"
+            }
+
+            $smokePayload = $smokeOutput | ConvertFrom-Json
+            if ($smokePayload.version -ne $env:RELEASE_VERSION) {
+              throw "Published CLI smoke for $rid returned version '$($smokePayload.version)' instead of '$env:RELEASE_VERSION'"
+            }
+
+            $artifactBase = "Nulmesis-windows-$arch-v$env:RELEASE_VERSION"
+            Copy-Item $sourceExe (Join-Path $artifactsDir "$artifactBase.exe") -Force
+            Compress-Archive -Path $sourceExe -DestinationPath (Join-Path $artifactsDir "$artifactBase.zip") -Force
+          }
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.exe
+            artifacts/*.zip
+          generate_release_notes: true

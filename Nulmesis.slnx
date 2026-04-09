@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Nulmesis.App/Nulmesis.App.csproj" />
+    <Project Path="src/Nulmesis.Core/Nulmesis.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Nulmesis.App.Tests/Nulmesis.App.Tests.csproj" />
+    <Project Path="tests/Nulmesis.Core.Tests/Nulmesis.Core.Tests.csproj" />
+    <Project Path="tests/Nulmesis.IntegrationTests/Nulmesis.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

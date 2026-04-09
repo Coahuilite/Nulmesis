@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    name: Commitlint, build and test
+    if: >-
+      (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch) ||
+      (github.event_name == 'pull_request' && github.base_ref == github.event.repository.default_branch)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Validate commit messages
+        shell: pwsh
+        run: |
+          $range = if ('${{ github.event_name }}' -eq 'pull_request') {
+            "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          }
+          elseif ('${{ github.event.before }}' -and '${{ github.event.before }}' -ne '0000000000000000000000000000000000000000') {
+            "${{ github.event.before }}..${{ github.sha }}"
+          }
+          else {
+            "${{ github.sha }}^..${{ github.sha }}"
+          }
+
+          npx --yes -p @commitlint/cli -p @commitlint/config-conventional commitlint --from $range.Split('..')[0] --to $range.Split('..')[1] --verbose
+
+      - name: Restore
+        shell: pwsh
+        run: |
+          Get-ChildItem .\src, .\tests -Recurse -Filter *.csproj |
+            ForEach-Object { dotnet restore $_.FullName }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          Get-ChildItem .\src, .\tests -Recurse -Filter *.csproj |
+            ForEach-Object { dotnet build $_.FullName --configuration Release --no-restore }
+
+      - name: Test
+        shell: pwsh
+        run: |
+          Get-ChildItem .\tests -Recurse -Filter *.csproj |
+            ForEach-Object { dotnet test $_.FullName --configuration Release --no-build }
+
+      - name: Publish smoke (x64 dirty build)
+        shell: pwsh
+        run: |
+          $publishDir = Join-Path $PWD 'artifacts\ci-smoke\win-x64'
+          New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
+
+          dotnet publish .\src\Nulmesis.App\Nulmesis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publishDir
+
+          $publishedFiles = Get-ChildItem $publishDir -File
+          if ($publishedFiles.Count -ne 1) {
+            throw "Expected a single distributable file in $publishDir but found $($publishedFiles.Count): $($publishedFiles.Name -join ', ')"
+          }
+
+          $exe = Join-Path $publishDir 'Nulmesis.exe'
+          if (-not (Test-Path $exe)) {
+            throw "Expected published executable '$exe' was not created."
+          }
+
+          $output = & $exe scan --root $env:RUNNER_TEMP --json
+          if ($LASTEXITCODE -ne 0) {
+            throw "Published CLI smoke failed with exit code $LASTEXITCODE"
+          }
+
+          $payload = $output | ConvertFrom-Json
+          if (-not $payload.version) {
+            throw 'Published CLI smoke did not return a version field.'
+          }
