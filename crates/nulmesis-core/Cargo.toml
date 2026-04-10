@@ -1,0 +1,15 @@
+[package]
+name = "nulmesis-core"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+windows.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

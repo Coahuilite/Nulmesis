@@ -1,0 +1,10 @@
+.sisyphus/
+artifacts/
+**/bin/
+**/obj/
+target/
+**/target/
+apps/desktop/node_modules/
+apps/desktop/dist/
+apps/desktop/app-icon.png
+apps/desktop/src-tauri/gen/

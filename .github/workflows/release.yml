@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v0.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release CLI/GUI artifacts
+    if: startsWith(github.ref_name, 'v0.')
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v0\.\d+\.\d+$') {
+            throw "Release tags must match v0.x.y. Received: $env:GITHUB_REF_NAME"
+          }
+
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install desktop dependencies
+        shell: pwsh
+        run: npm ci --prefix .\apps\desktop
+
+      - name: Test Rust workspace
+        shell: pwsh
+        run: cargo test
+
+      - name: Build CLI
+        shell: pwsh
+        run: cargo build -p nulmesis-cli --release
+
+      - name: Build GUI
+        shell: pwsh
+        run: npm run build --prefix .\apps\desktop -- --no-bundle --config .\src-tauri\tauri.conf.json
+
+      - name: Prepare release assets
+        shell: pwsh
+        run: |
+          $artifactsDir = Join-Path $PWD 'artifacts'
+          New-Item -ItemType Directory -Path $artifactsDir -Force | Out-Null
+
+          $cliSource = Join-Path $PWD 'target\release\nulmesis-cli.exe'
+          $guiSource = Join-Path $PWD 'apps\desktop\src-tauri\target\release\nulmesis-desktop.exe'
+
+          $cliTarget = Join-Path $artifactsDir "Nulmesis-cli-windows-x64-v$env:RELEASE_VERSION.exe"
+          $guiTarget = Join-Path $artifactsDir "Nulmesis-gui-windows-x64-v$env:RELEASE_VERSION.exe"
+
+          Copy-Item $cliSource $cliTarget -Force
+          Copy-Item $guiSource $guiTarget -Force
+
+          Compress-Archive -Path $cliTarget -DestinationPath (Join-Path $artifactsDir "Nulmesis-cli-windows-x64-v$env:RELEASE_VERSION.zip") -Force
+          Compress-Archive -Path $guiTarget -DestinationPath (Join-Path $artifactsDir "Nulmesis-gui-windows-x64-v$env:RELEASE_VERSION.zip") -Force
+
+      - name: Smoke CLI JSON output
+        shell: pwsh
+        run: |
+          $output = & .\target\release\nulmesis-cli.exe scan --root $env:RUNNER_TEMP --json
+          $payload = $output | ConvertFrom-Json
+          if (-not $payload.version) {
+            throw 'CLI release smoke did not return a version field.'
+          }
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.exe
+            artifacts/*.zip
+          generate_release_notes: true
