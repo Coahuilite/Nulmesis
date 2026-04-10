@@ -25,6 +25,7 @@ Allowed `type` values:
 - `build`
 - `ci`
 - `perf`
+- `release`
 
 Suggested `scope` values:
 
@@ -43,9 +44,7 @@ Only `v0.x.y` tags should trigger the release pipeline.
 - Formal release assets must include product surface, platform, architecture, and version in the filename.
 - Current target naming pattern:
   - `Nulmesis-cli-windows-x64-v0.x.y.exe`
-  - `Nulmesis-cli-windows-x64-v0.x.y.zip`
   - `Nulmesis-gui-windows-x64-v0.x.y.exe`
-  - `Nulmesis-gui-windows-x64-v0.x.y.zip`
 - Local manual builds are dirty validation artifacts and must not be treated as formal release assets.
 
 ## Pull requests
