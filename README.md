@@ -2,74 +2,83 @@
 
 [中文说明 / Chinese README](./README.zh-CN.md)
 
-Nulmesis is a Windows-only desktop and command-line tool for finding and deleting reserved-name `nul` files that are difficult to handle through normal path semantics.
+Nulmesis is a Windows-only Rust toolset for finding and deleting blocked files whose basename is exactly `nul`.
 
 ## What it does
 
-- launches a WPF GUI when started without arguments
-- runs as a CLI when started with arguments
-- shares one core implementation for scanning and deletion
-- supports two matching modes:
-  - `strict`: base name is exactly `nul` (case-insensitive) and file size is `0`
-  - `loose`: base name is exactly `nul` (case-insensitive), regardless of file size
-- only treats files whose base name is exactly `nul` as matches
-- does not treat `nul.txt`, `nul.log`, `nul.backup`, or other extended names as matches
+- runs as a CLI through `nulmesis-cli`
+- runs as a Tauri desktop app through `nulmesis-desktop`
+- keeps GUI and CLI aligned through the same Rust core
+- matches only files whose basename is exactly `nul`
+- does not treat `nul.txt`, `nul.log`, `nul.backup`, or similar names as matches
 - skips reparse points instead of following them
-
-## Project status
-
-Nulmesis is currently in the pre-`1.0.0` stage.
-
-- release line: `0.x`
-- intended first formal release: `0.1.0`
-- official release assets are produced by CI for tagged releases
-- official release filenames include platform, architecture, and version
-- local manual publish outputs are validation artifacts, not formal release assets
+- supports two scan modes:
+  - `strict`: exact `nul` with zero-byte size
+  - `loose`: exact `nul` regardless of size
 
 ## Repository layout
 
 ```text
-src/
-  Nulmesis.Core/   shared domain models, matching rules, scanner, deleter
-  Nulmesis.App/    WPF shell, CLI entry, dialogs, view models
-tests/
-  Nulmesis.Core.Tests/
-  Nulmesis.App.Tests/
-  Nulmesis.IntegrationTests/
+crates/
+  nulmesis-core/   shared domain models, scan/delete services, path handling
+  nulmesis-cli/    command-line entrypoint and JSON/human output
+apps/
+  desktop/         Tauri desktop shell, frontend, packaging config
 ```
 
 ## Requirements
 
 - Windows
-- .NET 8 SDK for local build and test
+- Rust toolchain
+- Node.js 20+
 
 ## Build and test
 
 ```powershell
-dotnet test .\Nulmesis.slnx -c Release
+cargo test
+```
+
+Desktop frontend build:
+
+```powershell
+npm install --prefix .\apps\desktop
+npm run frontend:build --prefix .\apps\desktop
+```
+
+Desktop dirty package:
+
+```powershell
+npx tauri build --no-bundle --config .\apps\desktop\src-tauri\tauri.conf.json
 ```
 
 ## Run from source
 
-GUI:
-
-```powershell
-dotnet run --project .\src\Nulmesis.App
-```
-
 CLI examples:
 
 ```powershell
-dotnet run --project .\src\Nulmesis.App -- scan --root C:\path\to\target --json
-dotnet run --project .\src\Nulmesis.App -- list --root C:\path\to\target
-dotnet run --project .\src\Nulmesis.App -- delete --root C:\path\to\target
+cargo run -p nulmesis-cli -- scan --root C:\path\to\target --json
+cargo run -p nulmesis-cli -- list --root C:\path\to\target --mode loose
+cargo run -p nulmesis-cli -- delete --root C:\path\to\target --mode loose
 ```
+
+Desktop dev mode:
+
+```powershell
+npm run dev --prefix .\apps\desktop
+```
+
+## Release policy
+
+- CI-produced tagged assets are the authoritative release outputs
+- local builds are dirty validation artifacts only
+- release filenames must include product surface, platform, architecture, and version
 
 ## Safety model
 
-- deletion is limited to detected delete targets
-- the tool is intentionally scoped to the `nul` reserved name only
-- tests are designed to use isolated temporary directories rather than real working folders
+- current reserved-name scope is `nul` only
+- deletion is limited to exact `nul` file targets
+- reparse points are skipped
+- high-risk roots should require deliberate user confirmation in the GUI
 
 ## Documentation for coding agents
 

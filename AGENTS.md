@@ -1,65 +1,64 @@
 # AGENTS.md
 
-This file is the primary instruction entry for coding agents working in this repository.
+Primary repository instructions for coding agents.
 
 ## Scope
 
 - Project: `Nulmesis`
 - Platform: Windows-only
-- Stack: .NET 8, WPF, CLI, xUnit
-- Current reserved-name scope: `nul` only
+- Stack: Rust, Tauri 2, TypeScript, Vite
+- Reserved-name scope: `nul` only
 
 ## Source of truth
 
-When working in this repository, use this priority order:
-
 1. direct user instructions
-2. this `AGENTS.md`
-3. repository documentation such as `README.md` and `CONTRIBUTING.md`
-4. existing code and tests
+2. this file
+3. `README.md`, `CONTRIBUTING.md`, and CI workflows
+4. current code and tests
 
-## Architecture summary
+## Architecture that changes how you work
 
-- `src/Nulmesis.Core/`: shared domain models, matching rules, path normalization, scan and delete services
-- `src/Nulmesis.App/`: WPF shell, CLI entry, dialogs, view models
-- `tests/`: unit, app, and integration tests
+- `crates/nulmesis-core/` is the shared behavior source of truth for scan/delete logic.
+- `crates/nulmesis-cli/` is the CLI entrypoint.
+- `apps/desktop/` is the Tauri desktop shell.
+- `apps/desktop/src-tauri/` is **excluded from the Rust workspace**. `cargo test` and `cargo build` do **not** validate the desktop crate by themselves.
 
-## Behavioral constraints
+## Product constraints
 
-- Keep the tool focused on the reserved name `nul` unless the user explicitly asks to expand scope.
-- Match only files whose base name is exactly `nul`.
+- Match only files whose basename is exactly `nul`.
 - Do not treat `nul.txt`, `nul.log`, `nul.backup`, or similar names as matches.
 - Do not follow reparse points.
-- Keep GUI and CLI behavior aligned through shared core logic.
-- Prefer minimal, targeted changes over broad refactors.
+- Keep GUI and CLI aligned through the same Rust core.
+- Prefer targeted changes over broad refactors.
 
-## Build and verification
+## Verification commands
 
-Before reporting completion for code changes, do the smallest relevant verification set:
+- Rust workspace: `cargo test`
+- Desktop deps: `npm ci --prefix .\apps\desktop`
+- Desktop frontend build: `npm run frontend:build --prefix .\apps\desktop`
+- Desktop dirty package: `npx tauri build --no-bundle --config .\apps\desktop\src-tauri\tauri.conf.json`
+- CLI smoke: `cargo run -p nulmesis-cli -- --help`
 
-- run targeted or full tests as appropriate
-- verify changed behavior manually when possible
-- do not claim publish or release behavior without actually testing it
+Run the smallest relevant set, but do not claim desktop behavior without actually building or launching the desktop app.
 
-Baseline command:
+## Release/build workflow facts
 
-```powershell
-dotnet test .\Nulmesis.slnx -c Release
-```
+- CI validates commit messages with commitlint before build/test.
+- Release tags must match `v0.x.y`.
+- Release workflow currently produces separate CLI and GUI Windows x64 artifacts.
+- Local builds are dirty validation artifacts only.
 
-## Documentation rules
+## Repo hygiene
 
-- Write user-facing documentation in clear English unless the file is explicitly localized.
-- Keep localized documents linked to the English version.
-- Do not include local machine details, private paths, machine-specific identifiers, or personal environment state in committed docs.
-- Keep provider-specific guidance out of `AGENTS.md`; this file must remain tool-agnostic.
+- Generated non-source files are expected under `artifacts/`, `target/`, `apps/desktop/node_modules/`, `apps/desktop/dist/`, and `apps/desktop/src-tauri/target/`.
+- Use `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\clean-non-source.ps1` to clean non-source files for this repo.
 
-## Release and packaging guidance
+## Documentation constraints
 
-- Treat CI-produced tagged artifacts as the authoritative release outputs.
-- Treat local publish outputs as validation artifacts unless the user explicitly asks to change that policy.
-- Include platform, architecture, and version information in formal release artifacts when release packaging is being adjusted.
+- Keep user-facing docs in English unless the file is explicitly localized.
+- Keep localized docs linked to the English version.
+- Do not commit local machine details, private paths, or environment-specific state.
 
-## Multi-agent companion files
+## Companion instruction files
 
-If you were invoked through another assistant-specific entry file such as `CLAUDE.md`, `CODEX.md`, or `GEMINI.md`, return here and treat this file as the shared project instruction set.
+If you entered through `CLAUDE.md`, `CODEX.md`, or `GEMINI.md`, return here and treat this file as the shared instruction set.
