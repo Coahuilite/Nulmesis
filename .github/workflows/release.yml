@@ -52,7 +52,7 @@ jobs:
 
       - name: Build GUI
         shell: pwsh
-        run: npx tauri build --no-bundle --config .\apps\desktop\src-tauri\tauri.conf.json
+        run: npm run build --prefix .\apps\desktop -- --no-bundle --config .\src-tauri\tauri.conf.json
 
       - name: Prepare release assets
         shell: pwsh

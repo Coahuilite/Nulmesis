@@ -55,7 +55,7 @@ jobs:
 
       - name: Build desktop smoke package
         shell: pwsh
-        run: npx tauri build --no-bundle --config .\apps\desktop\src-tauri\tauri.conf.json
+        run: npm run build --prefix .\apps\desktop -- --no-bundle --config .\src-tauri\tauri.conf.json
 
       - name: Smoke CLI help
         shell: pwsh
