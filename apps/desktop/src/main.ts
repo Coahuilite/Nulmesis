@@ -47,6 +47,8 @@ const browseButton = document.querySelector<HTMLButtonElement>("#browse")!;
 const modeSelect = document.querySelector<HTMLSelectElement>("#mode")!;
 const scanButton = document.querySelector<HTMLButtonElement>("#scan")!;
 const deleteButton = document.querySelector<HTMLButtonElement>("#delete")!;
+const selectAllButton = document.querySelector<HTMLButtonElement>("#select-all")!;
+const clearSelectionButton = document.querySelector<HTMLButtonElement>("#clear-selection")!;
 const resultList = document.querySelector<HTMLUListElement>("#results")!;
 const statusText = document.querySelector<HTMLParagraphElement>("#status-text")!;
 const statusRaw = document.querySelector<HTMLPreElement>("#status-raw")!;
@@ -58,6 +60,9 @@ const langToggle = document.querySelector<HTMLButtonElement>("#lang-toggle")!;
 const infoToggle = document.querySelector<HTMLButtonElement>("#info-toggle")!;
 const infoDrawer = document.querySelector<HTMLElement>("#info-drawer")!;
 const rawDetails = document.querySelector<HTMLDetailsElement>(".raw-status")!;
+const riskPanel = document.querySelector<HTMLElement>("#risk-panel")!;
+const riskConfirmButton = document.querySelector<HTMLButtonElement>("#risk-confirm")!;
+const riskCancelButton = document.querySelector<HTMLButtonElement>("#risk-cancel")!;
 
 let latestResult: ScanResult | null = null;
 let latestDelete: DeleteResult | null = null;
@@ -67,10 +72,7 @@ let selected = new Set<string>();
 let activity: Activity = "idle";
 let hasCompletedScan = false;
 let language: Language = getInitialLanguage();
-
-function keyForMode(mode: string) {
-  return mode === "loose" ? "looseHint" : "strictHint";
-}
+let pendingRiskRoot: string | null = null;
 
 function currentBadgeKey() {
   switch (activity) {
@@ -98,19 +100,14 @@ function currentBadgeKey() {
 function setBadge(state: string) {
   statusBadge.dataset.state = state;
   statusBadge.className = `badge badge-${state}`;
-  const key = currentBadgeKey() as Parameters<typeof t>[1];
-  statusBadge.textContent = t(language, key);
+  statusBadge.textContent = t(language, currentBadgeKey() as Parameters<typeof t>[1]);
 }
 
 function applyTheme(theme: "light" | "dark") {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("nulmesis-theme", theme);
-  const icon = document.querySelector<HTMLSpanElement>("#theme-icon");
-  const label = document.querySelector<HTMLSpanElement>("#theme-label");
-  if (icon && label) {
-    icon.textContent = theme === "dark" ? "🌙" : "☀️";
-    label.textContent = t(language, theme === "dark" ? "themeDark" : "themeLight");
-  }
+  document.querySelector<HTMLSpanElement>("#theme-icon")!.textContent = theme === "dark" ? "🌙" : "☀️";
+  document.querySelector<HTMLSpanElement>("#theme-label")!.textContent = t(language, theme === "dark" ? "themeDark" : "themeLight");
 }
 
 function initializeTheme() {
@@ -122,34 +119,47 @@ function initializeTheme() {
 function setLanguage(nextLanguage: Language) {
   language = nextLanguage;
   persistLanguage(language);
-  document.querySelector<HTMLElement>("#hero-eyebrow")!.textContent = t(language, "eyebrow");
-  document.querySelector<HTMLElement>("#hero-subtitle")!.textContent = t(language, "subtitle");
+
+  document.querySelector<HTMLElement>("#titlebar-label")!.textContent = t(language, "titlebarLabel");
+  document.querySelector<HTMLElement>("#lang-toggle-label")!.textContent = t(language, "langToggle");
+  document.querySelector<HTMLElement>("#info-toggle-label")!.textContent = infoDrawer.classList.contains("hidden") ? t(language, "infoToggle") : t(language, "infoHide");
   document.querySelector<HTMLElement>("#root-label")!.textContent = t(language, "root");
   document.querySelector<HTMLElement>("#mode-label")!.textContent = t(language, "mode");
   document.querySelector<HTMLElement>("#scan-status-label")!.textContent = t(language, "scanStatus");
   document.querySelector<HTMLElement>("#matches-label")!.textContent = t(language, "matches");
   document.querySelector<HTMLElement>("#raw-json-label")!.textContent = t(language, "rawJson");
-  document.querySelector<HTMLElement>("#titlebar-label")!.textContent = t(language, "titlebarLabel");
-  document.querySelector<HTMLElement>("#info-toggle-label")!.textContent = infoDrawer.classList.contains("hidden") ? t(language, "infoToggle") : t(language, "infoHide");
-  document.querySelector<HTMLElement>("#lang-toggle-label")!.textContent = t(language, "langToggle");
-  document.querySelector<HTMLElement>("#info-eyebrow")!.textContent = t(language, "eyebrow");
+  document.querySelector<HTMLElement>("#hero-title-tail-en")!.textContent = t(language, "heroTitleTail");
+  document.querySelector<HTMLElement>("#hero-title-tail-zh")!.textContent = t(language, "heroTitleTail");
+  document.querySelector<HTMLElement>("#subtitle-prefix-en")!.textContent = t(language, "subtitlePrefix");
+  document.querySelector<HTMLElement>("#subtitle-middle-en")!.textContent = t(language, "subtitleMiddle");
+  document.querySelector<HTMLElement>("#subtitle-tail-en")!.textContent = t(language, "subtitleTail");
+  document.querySelector<HTMLElement>("#subtitle-prefix-zh")!.textContent = t(language, "subtitlePrefix");
+  document.querySelector<HTMLElement>("#subtitle-middle-zh")!.textContent = t(language, "subtitleMiddle");
+  document.querySelector<HTMLElement>("#subtitle-tail-zh")!.textContent = t(language, "subtitleTail");
   document.querySelector<HTMLElement>("#info-title")!.textContent = t(language, "infoTitle");
-  document.querySelector<HTMLElement>("#info-subtitle")!.textContent = t(language, "subtitle");
+  document.querySelector<HTMLElement>("#info-subtitle")!.textContent = t(language, "subtitleInfo");
   document.querySelector<HTMLElement>("#info-build-label")!.textContent = t(language, "infoBuild");
   document.querySelector<HTMLElement>("#info-version-label")!.textContent = t(language, "infoVersion");
   document.querySelector<HTMLElement>("#info-engine-label")!.textContent = t(language, "infoEngine");
   document.querySelector<HTMLElement>("#info-platform-label")!.textContent = t(language, "infoPlatform");
   document.querySelector<HTMLElement>("#info-project-label")!.textContent = t(language, "infoProject");
   document.querySelector<HTMLElement>("#info-authors-label")!.textContent = t(language, "infoAuthors");
-  document.querySelector<HTMLInputElement>("#root")!.placeholder = t(language, "chooseRoot");
-  document.querySelector<HTMLElement>(".hero-title-en .hero-title-tail")!.textContent = t(language, "enTitleTail");
-  document.querySelector<HTMLElement>(".hero-title-zh .hero-title-tail")!.textContent = t(language, "zhTitleTail");
+  document.querySelector<HTMLElement>("#risk-title")!.textContent = t(language, "guardedPanelTitle");
   browseButton.textContent = t(language, "browse");
   deleteButton.textContent = t(language, "deleteSelected");
+  selectAllButton.textContent = t(language, "selectAll");
+  clearSelectionButton.textContent = t(language, "clearSelection");
+  rootInput.placeholder = t(language, "chooseRoot");
+
+  modeSelect.options[0].textContent = t(language, "strictOption");
+  modeSelect.options[1].textContent = t(language, "looseOption");
+
+  updateRiskPanelCopy();
   updateModeHint();
-  applyTheme((document.documentElement.dataset.theme as "light" | "dark") ?? "light");
   updateScanButton();
   setBadge(statusBadge.dataset.state ?? "idle");
+  applyTheme((document.documentElement.dataset.theme as "light" | "dark") ?? "light");
+  populateInfoDrawer(shellStatus);
   renderStatus();
   renderResults();
 }
@@ -163,33 +173,31 @@ function updateControls() {
   const editingLocked = activity !== "idle";
   const canStop = activity === "scanning";
   scanButton.disabled = activity === "stopping" || activity === "deleting";
-  deleteButton.disabled = editingLocked || selected.size === 0;
-  rootInput.disabled = editingLocked;
-  browseButton.disabled = editingLocked;
-  modeSelect.disabled = editingLocked;
   if (canStop) {
     scanButton.disabled = false;
   }
+  deleteButton.disabled = editingLocked || selected.size === 0;
+  selectAllButton.disabled = editingLocked || !latestResult || latestResult.deleteTargets.length === 0;
+  clearSelectionButton.disabled = editingLocked || selected.size === 0;
+  browseButton.disabled = editingLocked;
+  rootInput.disabled = editingLocked;
+  modeSelect.disabled = editingLocked;
 }
 
 function updateScanButton() {
-  if (activity === "scanning") {
-    scanButton.textContent = t(language, "stop");
-  } else if (activity === "stopping") {
-    scanButton.textContent = t(language, "stopping");
-  } else if (hasCompletedScan) {
-    scanButton.textContent = t(language, "rescan");
-  } else {
-    scanButton.textContent = t(language, "scan");
-  }
+  scanButton.textContent = activity === "scanning"
+    ? t(language, "stop")
+    : activity === "stopping"
+      ? t(language, "stopping")
+      : hasCompletedScan
+        ? t(language, "rescan")
+        : t(language, "scan");
 }
 
 function updateModeHint() {
-  const hint = document.querySelector<HTMLElement>("#mode-hint");
-  if (!hint) {
-    return;
-  }
-  hint.textContent = t(language, keyForMode(modeSelect.value));
+  document.querySelector<HTMLElement>("#mode-hint")!.textContent = modeSelect.value === "loose"
+    ? t(language, "looseHint")
+    : t(language, "strictHint");
 }
 
 function isHighRiskRoot(root: string) {
@@ -209,9 +217,9 @@ function setStatusMessage(message: string, rawPayload?: unknown) {
   statusRaw.textContent = JSON.stringify(latestRawPayload, null, 2);
 }
 
-function createStatusCard(label: string, value: string | number, subtle?: string) {
+function createStatusCard(label: string, value: string | number, className = "", subtle?: string) {
   const article = document.createElement("article");
-  article.className = "status-card";
+  article.className = `status-card ${className}`.trim();
   article.innerHTML = `
     <span class="status-card-label">${label}</span>
     <strong class="status-card-value">${value}</strong>
@@ -222,12 +230,11 @@ function createStatusCard(label: string, value: string | number, subtle?: string
 
 function renderStatus() {
   statusCards.innerHTML = "";
-
   if (latestResult) {
     const { summary, deleteTargets } = latestResult;
     statusCards.append(
-      createStatusCard(t(language, "cardsRoot"), summary.root),
-      createStatusCard(t(language, "cardsMode"), summary.mode.toLowerCase()),
+      createStatusCard(t(language, "cardsRoot"), summary.root, "status-card-wide"),
+      createStatusCard(t(language, "cardsMode"), summary.mode === "loose" ? t(language, "looseOption") : t(language, "strictOption")),
       createStatusCard(t(language, "cardsMatches"), summary.matchedCount),
       createStatusCard(t(language, "cardsDeleteTargets"), deleteTargets.length),
       createStatusCard(t(language, "cardsErrors"), summary.errorCount),
@@ -247,7 +254,7 @@ function renderStatus() {
 
   if (shellStatus) {
     statusCards.append(
-      createStatusCard(t(language, "cardsRoot"), shellStatus.currentDir),
+      createStatusCard(t(language, "cardsRoot"), shellStatus.currentDir, "status-card-wide"),
       createStatusCard(t(language, "cardsMode"), shellStatus.mode),
       createStatusCard(t(language, "cardsDuration"), shellStatus.buildChannel),
     );
@@ -263,8 +270,9 @@ function renderResults() {
   if (!latestResult || latestResult.matches.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty-state";
-    empty.textContent = t(language, "noScanYet");
+    empty.textContent = t(language, latestResult ? "noMatches" : "noScanYet");
     resultList.appendChild(empty);
+    updateControls();
     return;
   }
 
@@ -289,11 +297,9 @@ function renderResults() {
 
     const meta = document.createElement("div");
     meta.className = "result-meta";
-
     const path = document.createElement("div");
     path.className = "result-path";
     path.textContent = item.relativePath || item.absolutePath;
-
     const subtle = document.createElement("div");
     subtle.className = "result-subtle";
     subtle.textContent = `${item.sizeBytes} ${t(language, "bytes")} · ${deletable ? t(language, "deleteTarget") : t(language, "scanOnlyMatch")}`;
@@ -302,9 +308,15 @@ function renderResults() {
     li.append(checkbox, meta);
     resultList.appendChild(li);
   }
+
+  updateControls();
 }
 
-function populateInfoDrawer(status: ShellStatus) {
+function populateInfoDrawer(status: ShellStatus | null) {
+  if (!status) {
+    return;
+  }
+
   document.querySelector<HTMLElement>("#info-build-value")!.textContent = status.buildChannel;
   document.querySelector<HTMLElement>("#info-version-value")!.textContent = status.version;
   document.querySelector<HTMLElement>("#info-engine-value")!.textContent = status.engine;
@@ -320,6 +332,25 @@ function populateInfoDrawer(status: ShellStatus) {
   }
 }
 
+function hideRiskPanel() {
+  pendingRiskRoot = null;
+  riskPanel.classList.add("hidden");
+}
+
+function updateRiskPanelCopy() {
+  const root = pendingRiskRoot ?? rootInput.value.trim();
+  document.querySelector<HTMLElement>("#risk-title")!.textContent = t(language, "guardedPanelTitle");
+  document.querySelector<HTMLElement>("#risk-body")!.textContent = t(language, "guardedPanelBody", { root });
+  riskConfirmButton.textContent = t(language, "guardedContinue");
+  riskCancelButton.textContent = t(language, "guardedBack");
+}
+
+function showRiskPanel(root: string) {
+  pendingRiskRoot = root;
+  updateRiskPanelCopy();
+  riskPanel.classList.remove("hidden");
+}
+
 async function runScan() {
   const root = rootInput.value.trim();
   if (!root) {
@@ -328,6 +359,7 @@ async function runScan() {
     return;
   }
 
+  hideRiskPanel();
   setActivity("scanning");
   updateScanButton();
   setBadge("scanning");
@@ -358,6 +390,7 @@ async function runScan() {
     updateScanButton();
     if (String(error).includes("scan-cancelled")) {
       latestResult = null;
+      latestDelete = null;
       selected = new Set();
       hasCompletedScan = false;
       setBadge("idle");
@@ -366,7 +399,6 @@ async function runScan() {
       renderResults();
       return;
     }
-
     setBadge("failed");
     setStatusMessage(String(error), { error: String(error) });
   }
@@ -387,12 +419,10 @@ async function requestScan(userInitiated: boolean) {
       return;
     }
 
-    const confirmed = window.confirm(t(language, "guardedConfirm", { root }));
-    if (!confirmed) {
-      setBadge("guarded");
-      setStatusMessage(t(language, "guardedCancel", { root }), { guarded: true, root });
-      return;
-    }
+    showRiskPanel(root);
+    setBadge("guarded");
+    setStatusMessage(t(language, "guardedPanelBody", { root }), { guarded: true, root });
+    return;
   }
 
   await runScan();
@@ -444,6 +474,31 @@ deleteButton.addEventListener("click", async () => {
   }
 });
 
+selectAllButton.addEventListener("click", () => {
+  if (!latestResult) {
+    return;
+  }
+
+  selected = new Set(latestResult.deleteTargets.map((item) => item.absolutePath));
+  renderResults();
+});
+
+clearSelectionButton.addEventListener("click", () => {
+  selected = new Set();
+  renderResults();
+});
+
+riskConfirmButton.addEventListener("click", () => {
+  hideRiskPanel();
+  void runScan();
+});
+
+riskCancelButton.addEventListener("click", () => {
+  hideRiskPanel();
+  setBadge("guarded");
+  setStatusMessage(t(language, "guardedAuto", { root: rootInput.value.trim() }), { guarded: true, root: rootInput.value.trim() });
+});
+
 modeSelect.addEventListener("change", () => {
   updateModeHint();
 });
@@ -452,6 +507,7 @@ browseButton.addEventListener("click", async () => {
   const picked = await invoke<string | null>("pick_root_dir");
   if (picked) {
     rootInput.value = picked;
+    hideRiskPanel();
   }
 });
 

@@ -13,9 +13,11 @@
           <div class="titlebar-logo">N</div>
           <div class="titlebar-copy">
             <strong>Nulmesis</strong>
-            <span id="titlebar-label">nul-only cleanup</span>
+            <span id="titlebar-label">nul reserved-name cleanup</span>
           </div>
         </div>
+
+        <div class="titlebar-drag-fill" data-tauri-drag-region></div>
 
         <div class="titlebar-actions">
           <button id="lang-toggle" class="titlebar-button" type="button">
@@ -42,9 +44,8 @@
         <div class="info-profile">
           <div class="info-logo" aria-label="Nulmesis logo">N</div>
           <div class="info-copy">
-            <p class="eyebrow" id="info-eyebrow">Windows reserved-name cleanup</p>
             <h2 id="info-title">About this build</h2>
-            <p id="info-subtitle" class="muted">Rust + Tauri dirty shell with a shared scan/delete core.</p>
+            <p id="info-subtitle" class="muted">Local dirty build overview.</p>
           </div>
         </div>
         <div class="info-grid">
@@ -68,7 +69,7 @@
         <div class="info-list">
           <div class="info-list-row">
             <span class="info-list-label" id="info-project-label">Project</span>
-            <span id="info-project-value">Cloud repository pending</span>
+            <span id="info-project-value">https://github.com/Coahuilite/Nulmesis</span>
           </div>
           <div class="info-list-row info-list-row-stack">
             <span class="info-list-label" id="info-authors-label">Credits</span>
@@ -80,16 +81,28 @@
       <main id="app" class="page-shell">
         <section class="hero">
           <div>
-            <p class="eyebrow" id="hero-eyebrow">Windows reserved-name cleanup</p>
             <h1 class="hero-title hero-title-en" aria-label="Nulmesis a revenge to nul">
               <span class="hero-wordmark">Nulmes</span><span class="hero-wordmark-accent">is</span>
-              <span class="hero-title-tail">a revenge to nul</span>
+              <span class="hero-title-tail" id="hero-title-tail-en">a revenge to nul</span>
             </h1>
-            <p class="hero-title hero-title-zh" aria-label="Nulmesis 是一场对 nul 的复仇">
+            <h1 class="hero-title hero-title-zh" aria-label="Nulmesis 是一场对 nul 的复仇">
               <span class="hero-wordmark">Nulmesis</span>
-              <span class="hero-title-tail">是一场对 nul 的复仇</span>
+              <span class="hero-title-tail" id="hero-title-tail-zh">是一场对 nul 的复仇</span>
+            </h1>
+            <p class="subtitle subtitle-en" id="hero-subtitle-en">
+              <span id="subtitle-prefix-en">nul corrodes in silence, </span>
+              <span class="brand-rust">Rust</span>
+              <span id="subtitle-middle-en"> and </span>
+              <span class="brand-tauri">Tauri</span>
+              <span id="subtitle-tail-en"> will guard your glory.</span>
             </p>
-            <p class="subtitle" id="hero-subtitle">Rust + Tauri dirty shell with a shared scan/delete core.</p>
+            <p class="subtitle subtitle-zh" id="hero-subtitle-zh">
+              <span id="subtitle-prefix-zh">nul在悄无声息的腐蚀，</span>
+              <span class="brand-rust">Rust</span>
+              <span id="subtitle-middle-zh"> 与 </span>
+              <span class="brand-tauri">Tauri</span>
+              <span id="subtitle-tail-zh"> 会守护你的荣光。</span>
+            </p>
           </div>
         </section>
 
@@ -98,7 +111,7 @@
             <label class="field field-root">
               <span class="field-label" id="root-label">Root</span>
               <div class="field-with-action">
-                <input id="root" placeholder="Current directory will be used on launch" />
+                <input id="root" placeholder="Choose a root directory before scanning." />
                 <button id="browse" class="button button-subtle" type="button">📂 Browse</button>
               </div>
             </label>
@@ -106,8 +119,8 @@
             <label class="field field-mode">
               <span class="field-label" id="mode-label">Mode</span>
               <select id="mode">
-                <option value="strict">strict</option>
-                <option value="loose">loose</option>
+                <option value="strict">Strict mode</option>
+                <option value="loose">Loose mode</option>
               </select>
             </label>
 
@@ -116,7 +129,18 @@
               <button id="delete" class="button button-danger" type="button" disabled>🗑️ Delete selected</button>
             </div>
           </div>
-          <p class="hint" id="mode-hint">Strict finds only 0KB `nul`. Switch to loose if the blocked `nul` has non-zero size.</p>
+          <p class="hint" id="mode-hint">Strict mode finds only zero-byte exact `nul` files.</p>
+
+          <section id="risk-panel" class="risk-panel hidden" role="alert">
+            <div class="risk-panel-copy">
+              <strong id="risk-title">High-risk scan</strong>
+              <p id="risk-body">Drive-root scans may take a long time even though the UI remains responsive.</p>
+            </div>
+            <div class="risk-panel-actions">
+              <button id="risk-confirm" class="button button-primary" type="button">⚠️ Scan anyway</button>
+              <button id="risk-cancel" class="button button-subtle" type="button">↩️ Back</button>
+            </div>
+          </section>
         </section>
 
         <section class="panel status-panel">
@@ -136,6 +160,8 @@
           <div class="panel-header panel-header-wrap">
             <h2 id="matches-label">Matches</h2>
             <div class="panel-tools">
+              <button id="select-all" class="button button-subtle" type="button" disabled>☑️ Select all</button>
+              <button id="clear-selection" class="button button-subtle" type="button" disabled>🧹 Clear</button>
               <span id="results-summary" class="muted">No scan yet</span>
             </div>
           </div>

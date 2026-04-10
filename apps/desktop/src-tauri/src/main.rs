@@ -10,7 +10,9 @@ use nulmesis_core::{DeleteResult, NulFileDeleter, NulFileScanner, NulMatch, Scan
 use rfd::FileDialog;
 use serde::Deserialize;
 use serde::Serialize;
+use tauri::Manager;
 use tauri::State;
+use tauri::WindowEvent;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -111,7 +113,7 @@ fn shell_status() -> ShellStatus {
             .unwrap_or_default(),
         version: env!("CARGO_PKG_VERSION"),
         build_channel: "dirty-local",
-        project_url: "Cloud repository pending",
+        project_url: "https://github.com/Coahuilite/Nulmesis",
         engine: "Rust + Tauri 2",
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
@@ -138,6 +140,11 @@ fn main() {
 
     tauri::Builder::default()
         .manage(ScanControl::default())
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, WindowEvent::CloseRequested { .. }) {
+                window.app_handle().exit(0);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             shell_status,
             scan,
