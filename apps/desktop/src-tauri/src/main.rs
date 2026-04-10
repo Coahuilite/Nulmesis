@@ -1,11 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::{stderr, stdin, stdout, BufReader};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use clap::Parser;
-use nulmesis_cli::{run_with_io, Cli};
 use nulmesis_core::{DeleteResult, NulFileDeleter, NulFileScanner, NulMatch, ScanMode, ScanResult};
 use rfd::FileDialog;
 use serde::Deserialize;
@@ -129,15 +126,6 @@ fn parse_mode(value: &str) -> ScanMode {
 }
 
 fn main() {
-    if std::env::args_os().len() > 1 {
-        let cli = Cli::parse();
-        let mut input = BufReader::new(stdin());
-        let mut output = stdout();
-        let mut error = stderr();
-        let code = run_with_io(cli, &mut input, &mut output, &mut error).unwrap_or(4);
-        std::process::exit(code);
-    }
-
     tauri::Builder::default()
         .manage(ScanControl::default())
         .on_window_event(|window, event| {

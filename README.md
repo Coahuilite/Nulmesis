@@ -6,9 +6,9 @@ Nulmesis is a Windows-only Rust toolset for finding and deleting blocked files w
 
 ## What it does
 
-- runs as a CLI through `nulmesis-cli`
-- runs as a Tauri desktop app through `nulmesis-desktop`
-- keeps GUI and CLI aligned through the same Rust core
+- runs as a dedicated CLI executable through `nulmesis-cli`
+- runs as a dedicated Tauri desktop executable through `nulmesis-desktop`
+- keeps GUI and CLI aligned through the same shared Rust core while shipping them as separate binaries
 - matches only files whose basename is exactly `nul`
 - does not treat `nul.txt`, `nul.log`, `nul.backup`, or similar names as matches
 - skips reparse points instead of following them
@@ -41,14 +41,14 @@ cargo test
 Desktop frontend build:
 
 ```powershell
-npm install --prefix .\apps\desktop
+npm ci --prefix .\apps\desktop
 npm run frontend:build --prefix .\apps\desktop
 ```
 
 Desktop dirty package:
 
 ```powershell
-npx tauri build --no-bundle --config .\apps\desktop\src-tauri\tauri.conf.json
+npm run build --prefix .\apps\desktop -- --no-bundle --config .\src-tauri\tauri.conf.json
 ```
 
 ## Run from source
@@ -67,11 +67,17 @@ Desktop dev mode:
 npm run dev --prefix .\apps\desktop
 ```
 
+Desktop scope note:
+
+- `nulmesis-desktop` is GUI-only and calls the shared Rust core directly
+- CLI behavior lives in `nulmesis-cli`; the desktop executable is no longer a CLI fallback host
+
 ## Release policy
 
 - CI-produced tagged assets are the authoritative release outputs
 - local builds are dirty validation artifacts only
 - release filenames must include product surface, platform, architecture, and version
+- current formal release assets are separate Windows x64 `.exe` files for CLI and GUI
 
 ## Safety model
 

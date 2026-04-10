@@ -21,6 +21,7 @@ Primary repository instructions for coding agents.
 - `crates/nulmesis-core/` is the shared behavior source of truth for scan/delete logic.
 - `crates/nulmesis-cli/` is the CLI entrypoint.
 - `apps/desktop/` is the Tauri desktop shell.
+- `nulmesis-desktop` is GUI-only. Do not reintroduce CLI fallback behavior into the desktop executable unless the user explicitly asks for it.
 - `apps/desktop/src-tauri/` is **excluded from the Rust workspace**. `cargo test` and `cargo build` do **not** validate the desktop crate by themselves.
 
 ## Product constraints
@@ -28,7 +29,7 @@ Primary repository instructions for coding agents.
 - Match only files whose basename is exactly `nul`.
 - Do not treat `nul.txt`, `nul.log`, `nul.backup`, or similar names as matches.
 - Do not follow reparse points.
-- Keep GUI and CLI aligned through the same Rust core.
+- Keep GUI and CLI aligned through the same Rust core while preserving separate executable surfaces.
 - Prefer targeted changes over broad refactors.
 
 ## Verification commands
@@ -36,7 +37,7 @@ Primary repository instructions for coding agents.
 - Rust workspace: `cargo test`
 - Desktop deps: `npm ci --prefix .\apps\desktop`
 - Desktop frontend build: `npm run frontend:build --prefix .\apps\desktop`
-- Desktop dirty package: `npx tauri build --no-bundle --config .\apps\desktop\src-tauri\tauri.conf.json`
+- Desktop dirty package: `npm run build --prefix .\apps\desktop -- --no-bundle --config .\src-tauri\tauri.conf.json`
 - CLI smoke: `cargo run -p nulmesis-cli -- --help`
 
 Run the smallest relevant set, but do not claim desktop behavior without actually building or launching the desktop app.
@@ -45,7 +46,7 @@ Run the smallest relevant set, but do not claim desktop behavior without actuall
 
 - CI validates commit messages with commitlint before build/test.
 - Release tags must match `v0.x.y`.
-- Release workflow currently produces separate CLI and GUI Windows x64 artifacts.
+- Release workflow currently produces separate CLI and GUI Windows x64 `.exe` artifacts.
 - Local builds are dirty validation artifacts only.
 
 ## Repo hygiene
