@@ -69,9 +69,6 @@ jobs:
           Copy-Item $cliSource $cliTarget -Force
           Copy-Item $guiSource $guiTarget -Force
 
-          Compress-Archive -Path $cliTarget -DestinationPath (Join-Path $artifactsDir "Nulmesis-cli-windows-x64-v$env:RELEASE_VERSION.zip") -Force
-          Compress-Archive -Path $guiTarget -DestinationPath (Join-Path $artifactsDir "Nulmesis-gui-windows-x64-v$env:RELEASE_VERSION.zip") -Force
-
       - name: Smoke CLI JSON output
         shell: pwsh
         run: |
@@ -86,5 +83,4 @@ jobs:
         with:
           files: |
             artifacts/*.exe
-            artifacts/*.zip
           generate_release_notes: true
