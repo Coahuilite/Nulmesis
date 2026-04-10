@@ -34,9 +34,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: .\apps\desktop\package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            .\apps\desktop\src-tauri -> apps/desktop/src-tauri/target
 
       - name: Install desktop dependencies
         shell: pwsh
@@ -69,9 +78,6 @@ jobs:
           Copy-Item $cliSource $cliTarget -Force
           Copy-Item $guiSource $guiTarget -Force
 
-          Compress-Archive -Path $cliTarget -DestinationPath (Join-Path $artifactsDir "Nulmesis-cli-windows-x64-v$env:RELEASE_VERSION.zip") -Force
-          Compress-Archive -Path $guiTarget -DestinationPath (Join-Path $artifactsDir "Nulmesis-gui-windows-x64-v$env:RELEASE_VERSION.zip") -Force
-
       - name: Smoke CLI JSON output
         shell: pwsh
         run: |
@@ -86,5 +92,4 @@ jobs:
         with:
           files: |
             artifacts/*.exe
-            artifacts/*.zip
           generate_release_notes: true
